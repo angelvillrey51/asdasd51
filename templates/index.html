@@ -1,37 +1,76 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
-    <title>ASDASD51</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <meta charset="UTF-8" />
+  <title>Dashboard ESP32</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
-<div id="pantalla">
-    <button id="btn">Presióname</button>
-    <h1 id="texto" style="display:none;">Ashanty consigue trabajo</h1>
+<div class="container">
+  <h1>Monitor en tiempo real</h1>
 
-    <canvas id="confetti"></canvas>
+  <div class="cards">
+    <div class="card">
+      <h3>Temperatura</h3>
+      <p id="temp" class="value">-- °C</p>
+    </div>
+    <div class="card">
+      <h3>Humedad</h3>
+      <p id="hum" class="value">-- %</p>
+    </div>
+  </div>
 
-    <h1>Datos en tiempo real</h1>
-    <h2 id="temp">Temperatura: -- °C</h2>
-    <h2 id="hum">Humedad: -- %</h2>
+  <div class="chart-box">
+    <canvas id="tempChart"></canvas>
+  </div>
 </div>
 
-<audio id="musica" src="{{ url_for('static', filename='audio/cutbangarang.mp3') }}"></audio>
-
-<!-- Tu script principal -->
-<script src="{{ url_for('static', filename='script.js') }}"></script>
-
-<!-- Script tiempo real -->
 <script>
+let labels = [];
+let tempData = [];
+let humData = [];
+
+const ctx = document.getElementById('tempChart').getContext('2d');
+const chart = new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels,
+    datasets: [
+      { label: 'Temperatura (°C)', data: tempData, borderWidth: 2 },
+      { label: 'Humedad (%)', data: humData, borderWidth: 2 }
+    ]
+  },
+  options: {
+    responsive: true,
+    scales: {
+      y: { beginAtZero: true }
+    }
+  }
+});
+
 setInterval(() => {
   fetch("/ver")
     .then(r => r.json())
     .then(d => {
-      document.getElementById("temp").textContent =
-        "Temperatura: " + d.temp + " °C";
-      document.getElementById("hum").textContent =
-        "Humedad: " + d.hum + " %";
+      const t = new Date().toLocaleTimeString();
+
+      document.getElementById("temp").textContent = d.temp + " °C";
+      document.getElementById("hum").textContent = d.hum + " %";
+
+      labels.push(t);
+      tempData.push(d.temp);
+      humData.push(d.hum);
+
+      if (labels.length > 15) {
+        labels.shift();
+        tempData.shift();
+        humData.shift();
+      }
+
+      chart.update();
     });
 }, 2000);
 </script>
