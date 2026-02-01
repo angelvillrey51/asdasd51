@@ -7,6 +7,4 @@ app = Flask(__name__)
 def home():
     return "Mi primera web en Internet 😎"
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+# Render usa gunicorn, así que NO usamos app.run()
