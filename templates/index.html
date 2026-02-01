@@ -10,6 +10,8 @@
     <button id="btn">Presióname</button>
     <h1 id="texto" style="display:none;">Ashanty consigue trabajo</h1>
     <canvas id="confetti"></canvas>
+    <h2>Temperatura: {{ data.temp }} °C</h2>
+    <h2>Humedad: {{ data.hum }} %</h2>
 </div>
 
 <audio id="musica" src="{{ url_for('static', filename='audio/cutbangarang.mp3') }}"></audio>
