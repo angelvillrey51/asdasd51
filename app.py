@@ -1,27 +1,30 @@
 from flask import Flask, request, jsonify, render_template
-import requests, os
+import os
 
 app = Flask(__name__)
 
-ESP32_URL = "http://192.168.1.11/abrir"
+# variable global de orden
+orden = False
 
 @app.route("/")
 def home():
     return render_template("index.html")
 
+# La web manda la señal aquí
 @app.route("/abrir", methods=["POST"])
-def abrir_puerta():
-    try:
-        requests.post(ESP32_URL, timeout=2)
-        return jsonify({"status": "ok"}), 200
-    except:
-        return jsonify({"error": "ESP32 no responde"}), 500
+def abrir():
+    global orden
+    orden = True
+    return jsonify({"status": "ok"})
 
-@app.route("/datos", methods=["POST"])
-def datos():
-    data = request.get_json()
-    print("Datos recibidos:", data)
-    return jsonify({"status": "recibido"}), 200
+# El ESP32 consulta aquí
+@app.route("/orden", methods=["GET"])
+def get_orden():
+    global orden
+    if orden:
+        orden = False
+        return jsonify({"abrir": True})
+    return jsonify({"abrir": False})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
