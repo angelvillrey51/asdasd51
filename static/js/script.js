@@ -19,6 +19,9 @@ let vCounter = 0;          // cuántas veces se hizo la V
 const vRepetitions = 2;    // V requiere 2 repeticiones
 let activeTimer = null;
 
+// Estado para V
+let manoCerrada = false;
+
 // Contar dedos levantados
 function contarDedos(landmarks) {
   const tipIds = [4, 8, 12, 16, 20]; // pulgar, índice, medio, anular, meñique
@@ -36,10 +39,8 @@ function detectarOK(landmarks) {
   const pulgar = landmarks[tipIds[0]];
   const indice = landmarks[tipIds[1]];
 
-  // Distancia pulgar-indice < umbral
   const dist = Math.hypot(pulgar.x - indice.x, pulgar.y - indice.y);
 
-  // Otros 3 dedos levantados
   const medio = landmarks[tipIds[2]];
   const anular = landmarks[tipIds[3]];
   const meñique = landmarks[tipIds[4]];
@@ -75,18 +76,23 @@ hands.onResults(results => {
 
     const dedos = contarDedos(landmarks);
 
-    // --- Gesto V ---
-    // Solo detecta si pulgar+índice levantados y los demás completamente abajo
-    if (dedos[0] && dedos[1] && !dedos[2] && !dedos[3] && !dedos[4]) {
+    // --- Estado de V ---
+    const tresMediosCerrados = !dedos[2] && !dedos[3] && !dedos[4];
+    const pulgarIndiceV = dedos[0] && dedos[1];
+
+    // Detectar cuando la mano está cerrada (3 dedos medios abajo)
+    if (tresMediosCerrados && !pulgarIndiceV) {
+      manoCerrada = true; // mano lista para contar V
+    }
+
+    // Detectar V solo después de cerrar la mano
+    if (manoCerrada && pulgarIndiceV && tresMediosCerrados) {
       vCounter++;
+      manoCerrada = false; // resetear hasta que cierre y abra otra vez
       if (vCounter >= vRepetitions) {
         activarAccion("Abrir puerta (V)");
-        vCounter = 0; // reiniciar repeticiones
+        vCounter = 0;
       }
-    } else {
-      // reset si la mano no cumple la forma exacta
-      // esto evita que al abrir la mano con 5 dedos siga contando
-      vCounter = 0;
     }
 
     // --- Gesto OK 👌 ---
