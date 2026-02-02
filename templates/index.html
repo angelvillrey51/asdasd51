@@ -2,27 +2,22 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Contador de Dedos</title>
-    <!-- CSS -->
+    <title>Gestos de Mano - Abrir Puerta</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <!-- MediaPipe -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
 </head>
 <body>
-    <h1>Cuenta tus dedos</h1>
+    <h1>Gestos de Mano</h1>
 
-    <!-- Botón para activar la cámara -->
     <button id="startCam">Activar Cámara</button>
 
-    <!-- Video y canvas -->
     <video id="video" width="640" height="480" autoplay></video>
     <canvas id="canvas" width="640" height="480"></canvas>
 
-    <!-- Contador de dedos -->
-    <div id="contador">Dedos levantados: 0</div>
+    <div id="accion">Acción: Ninguna</div>
 
-    <!-- JS -->
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body>
 </html>
