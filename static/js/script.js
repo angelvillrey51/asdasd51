@@ -4,10 +4,7 @@ const canvasElement = document.getElementById('canvas');
 const canvasCtx = canvasElement.getContext('2d');
 const accion = document.getElementById('accion');
 
-// IP o URL de tu ESP32
-const ESP32_URL = "http://192.168.1.50/abrir"; // cambia a tu IP
-
-// MediaPipe Hands
+// ===== MediaPipe =====
 const hands = new Hands({
   locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
 });
@@ -18,80 +15,81 @@ hands.setOptions({
   minTrackingConfidence: 0.7
 });
 
-let vCounter = 0;          // cuántas veces se hizo la V
-const vRepetitions = 2;    // V requiere 2 repeticiones
+let vCounter = 0;
+const vRepetitions = 2;
 let activeTimer = null;
 let manoCerrada = false;
 
-// Contar dedos levantados
+// ===== Detectar dedos =====
 function contarDedos(landmarks) {
-  const tipIds = [4, 8, 12, 16, 20];
-  let dedos = [false, false, false, false, false];
-  dedos[0] = landmarks[tipIds[0]].x > landmarks[tipIds[0]-1].x;
-  for (let i = 1; i < tipIds.length; i++) {
+  const tipIds = [4,8,12,16,20];
+  let dedos = [false,false,false,false,false];
+  dedos[0] = landmarks[4].x > landmarks[3].x; 
+  for (let i = 1; i < 5; i++) {
     dedos[i] = landmarks[tipIds[i]].y < landmarks[tipIds[i]-2].y;
   }
   return dedos;
 }
 
-// Detectar gesto OK 👌
+// ===== Gesto OK 👌 =====
 function detectarOK(landmarks) {
-  const tipIds = [4,8,12,16,20];
-  const pulgar = landmarks[tipIds[0]];
-  const indice = landmarks[tipIds[1]];
+  const pulgar = landmarks[4];
+  const indice = landmarks[8];
   const dist = Math.hypot(pulgar.x - indice.x, pulgar.y - indice.y);
-  const medio = landmarks[tipIds[2]];
-  const anular = landmarks[tipIds[3]];
-  const meñique = landmarks[tipIds[4]];
-  const otrosLevantados = (medio.y < landmarks[tipIds[2]-2].y) &&
-                           (anular.y < landmarks[tipIds[3]-2].y) &&
-                           (meñique.y < landmarks[tipIds[4]-2].y);
+
+  const medio = landmarks[12];
+  const anular = landmarks[16];
+  const menique = landmarks[20];
+
+  const otrosLevantados =
+    medio.y < landmarks[10].y &&
+    anular.y < landmarks[14].y &&
+    menique.y < landmarks[18].y;
+
   return dist < 0.05 && otrosLevantados;
 }
 
-// Función para mandar POST al ESP32
+// ===== Mandar señal a Render =====
 function enviarSenalESP32() {
-  fetch(ESP32_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ accion: "abrir" })
-  })
-  .then(res => console.log("Señal enviada al ESP32"))
-  .catch(err => console.error("Error enviando señal:", err));
+  fetch("/abrir", { method: "POST" })
+    .then(() => console.log("Señal enviada a Render"))
+    .catch(e => console.error("Error:", e));
 }
 
-// Activar acción y mandar señal
+// ===== Activar acción =====
 function activarAccion(texto) {
   accion.innerText = `Acción: ${texto}`;
-  enviarSenalESP32(); // mandar señal al ESP32
+  enviarSenalESP32();
+
   if (activeTimer) clearTimeout(activeTimer);
   activeTimer = setTimeout(() => {
     accion.innerText = "Acción: Ninguna";
   }, 5000);
 }
 
-// Procesar resultados de MediaPipe
+// ===== MediaPipe callback =====
 hands.onResults(results => {
-  canvasCtx.save();
-  canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-  if (results.image) canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+  canvasCtx.clearRect(0,0,canvasElement.width,canvasElement.height);
+  if (results.image) {
+    canvasCtx.drawImage(results.image,0,0,canvasElement.width,canvasElement.height);
+  }
 
-  if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-    const landmarks = results.multiHandLandmarks[0];
-    drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#00FFCC', lineWidth: 5});
-    drawLandmarks(canvasCtx, landmarks, {color: '#FF0066', lineWidth: 2});
+  if (results.multiHandLandmarks?.length) {
+    const lm = results.multiHandLandmarks[0];
+    drawConnectors(canvasCtx, lm, HAND_CONNECTIONS, {color:"#00FFCC", lineWidth:4});
+    drawLandmarks(canvasCtx, lm, {color:"#FF0066", lineWidth:2});
 
-    const dedos = contarDedos(landmarks);
+    const dedos = contarDedos(lm);
 
-    // --- V con estado de cierre y apertura ---
-    const tresMediosCerrados = !dedos[2] && !dedos[3] && !dedos[4];
-    const pulgarIndiceV = dedos[0] && dedos[1];
+    const tresCerrados = !dedos[2] && !dedos[3] && !dedos[4];
+    const pulgarIndice = dedos[0] && dedos[1];
 
-    if (tresMediosCerrados && !pulgarIndiceV) {
+    // estado de V
+    if (tresCerrados && !pulgarIndice) {
       manoCerrada = true;
     }
 
-    if (manoCerrada && pulgarIndiceV && tresMediosCerrados) {
+    if (manoCerrada && pulgarIndice && tresCerrados) {
       vCounter++;
       manoCerrada = false;
       if (vCounter >= vRepetitions) {
@@ -100,29 +98,30 @@ hands.onResults(results => {
       }
     }
 
-    // --- OK 👌 ---
-    if (detectarOK(landmarks)) {
+    // OK
+    if (detectarOK(lm)) {
       activarAccion("Abrir puerta (OK 👌)");
     }
   }
-  canvasCtx.restore();
 });
 
-// Iniciar cámara
-startButton.addEventListener('click', async () => {
+// ===== Cámara =====
+startButton.addEventListener("click", async () => {
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    const stream = await navigator.mediaDevices.getUserMedia({video:true});
     videoElement.srcObject = stream;
     videoElement.play();
-    videoElement.style.display = 'none';
+    videoElement.style.display = "none";
 
-    const processFrame = async () => {
-      if (videoElement.readyState === 4) await hands.send({image: videoElement});
-      requestAnimationFrame(processFrame);
+    const loop = async () => {
+      if (videoElement.readyState === 4) {
+        await hands.send({image: videoElement});
+      }
+      requestAnimationFrame(loop);
     };
-    processFrame();
-    startButton.style.display = 'none';
-  } catch (err) {
-    alert('No se pudo acceder a la cámara: ' + err);
+    loop();
+    startButton.style.display = "none";
+  } catch (e) {
+    alert("No se pudo acceder a la cámara");
   }
 });
