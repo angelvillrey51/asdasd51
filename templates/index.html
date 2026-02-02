@@ -1,86 +1,25 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<head>
-  <meta charset="UTF-8" />
-  <title>Dashboard ESP32</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
-  
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-</head>
-
+    <meta charset="UTF-8">
+    <title>Contador de Dedos</title>
+    <!-- CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- MediaPipe -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
 </head>
 <body>
+    <h1>Cuenta tus dedos</h1>
 
-<div class="container">
-  <h1>Monitor en tiempo real</h1>
+    <!-- Video y canvas -->
+    <video id="video" width="640" height="480" autoplay></video>
+    <canvas id="canvas" width="640" height="480"></canvas>
 
-  <div class="cards">
-    <div class="card">
-      <h3>Temperatura</h3>
-      <p id="temp" class="value">-- °C</p>
-    </div>
-    <div class="card">
-      <h3>Humedad</h3>
-      <p id="hum" class="value">-- %</p>
-    </div>
-  </div>
+    <!-- Contador -->
+    <div id="contador">Dedos levantados: 0</div>
 
-  <div class="chart-box">
-    <canvas id="tempChart"></canvas>
-  </div>
-</div>
-
-<script>
-let labels = [];
-let tempData = [];
-let humData = [];
-
-const ctx = document.getElementById('tempChart').getContext('2d');
-const chart = new Chart(ctx, {
-  type: 'line',
-  data: {
-    labels,
-    datasets: [
-      { label: 'Temperatura (°C)', data: tempData, borderWidth: 2 },
-      { label: 'Humedad (%)', data: humData, borderWidth: 2 }
-    ]
-  },
-  options: {
-    responsive: true,
-    scales: {
-      y: { beginAtZero: true }
-    }
-  }
-});
-
-setInterval(() => {
-  fetch("/ver")
-    .then(r => r.json())
-    .then(d => {
-      const t = new Date().toLocaleTimeString();
-
-      document.getElementById("temp").textContent = d.temp + " °C";
-      document.getElementById("hum").textContent = d.hum + " %";
-
-      labels.push(t);
-      tempData.push(d.temp);
-      humData.push(d.hum);
-
-      if (labels.length > 15) {
-        labels.shift();
-        tempData.shift();
-        humData.shift();
-      }
-
-      chart.update();
-    });
-}, 2000);
-</script>
-
+    <!-- JS -->
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body>
 </html>
