@@ -17,39 +17,35 @@ hands.setOptions({
 
 // Variables para detección de movimiento
 let lastPositions = [];
-const maxHistory = 5;       // historial de frames
-const filterThreshold = 3;  // cantidad de frames consecutivos para validar gesto
-let gestureCounter = 0;     // contador de frames para gesto
-let activeTimer = null;     // timer para mantener acción activa
+const maxHistory = 5;
+const filterThreshold = 3;
+let gestureCounter = 0;
+let activeTimer = null;
 
-// Función para contar dedos levantados
+// Contar dedos
 function contarDedos(landmarks) {
   const tipIds = [4, 8, 12, 16, 20];
   let dedos = [false, false, false, false, false];
-  // Pulgar
-  dedos[0] = landmarks[tipIds[0]].x > landmarks[tipIds[0]-1].x;
-  // Otros 4 dedos
+  dedos[0] = landmarks[tipIds[0]].x > landmarks[tipIds[0]-1].x; // pulgar
   for (let i = 1; i < tipIds.length; i++) {
     dedos[i] = landmarks[tipIds[i]].y < landmarks[tipIds[i]-2].y;
   }
   return dedos;
 }
 
-// Función para detectar gesto "agitar mano"
+// Detectar gesto agitar
 function detectarAgitar(lastPositions) {
   if (lastPositions.length < maxHistory) return false;
-
   let totalDiff = 0;
   for (let i = 0; i < 4; i++) {
     let diffY = lastPositions[maxHistory-1][i].y - lastPositions[0][i].y;
     let diffX = lastPositions[maxHistory-1][i].x - lastPositions[0][i].x;
     totalDiff += Math.abs(diffY) + Math.abs(diffX);
   }
-
-  return totalDiff > 0.15; // umbral para movimiento
+  return totalDiff > 0.15;
 }
 
-// Función para activar acción 3 segundos
+// Activar acción por 3 segundos
 function activarAccion(texto) {
   accion.innerText = `Acción: ${texto}`;
   if (activeTimer) clearTimeout(activeTimer);
@@ -58,22 +54,26 @@ function activarAccion(texto) {
   }, 3000);
 }
 
-// MediaPipe onResults
+// Función principal de procesamiento de cada frame
 hands.onResults(results => {
   canvasCtx.save();
   canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-  canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+
+  // Dibujar solo si hay imagen de la cámara
+  if (results.image) {
+    canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+  }
+
+  let gestureDetected = false;
 
   if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
     const landmarks = results.multiHandLandmarks[0];
     drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#00FFCC', lineWidth: 5});
     drawLandmarks(canvasCtx, landmarks, {color: '#FF0066', lineWidth: 2});
 
-    // Contar dedos
     const dedos = contarDedos(landmarks);
 
-    // --- Detectar gesto V ---
-    let gestureDetected = false;
+    // --- Gest V ---
     if (dedos[0] && dedos[1] && !dedos[2] && !dedos[3] && !dedos[4]) {
       gestureCounter++;
       if (gestureCounter >= filterThreshold) {
@@ -82,11 +82,10 @@ hands.onResults(results => {
       }
     }
 
-    // --- Detectar gesto agitar ---
-    // Guardamos posición media de 4 dedos
+    // --- Gest agitar ---
     let pos = [];
     for (let i = 1; i <= 4; i++) {
-      pos.push({x: landmarks[tipIds[i]].x, y: landmarks[tipIds[i]].y});
+      pos.push({x: landmarks[[4,8,12,16,20][i]].x, y: landmarks[[4,8,12,16,20][i]].y});
     }
     lastPositions.push(pos);
     if (lastPositions.length > maxHistory) lastPositions.shift();
@@ -99,26 +98,27 @@ hands.onResults(results => {
       }
     }
 
-    // Si no detectamos gesto en este frame, resetear contador
     if (!gestureDetected) gestureCounter = 0;
-
   }
 
   canvasCtx.restore();
 });
 
-// Botón para iniciar cámara
+// Iniciar cámara al presionar botón
 startButton.addEventListener('click', async () => {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ video: true });
     videoElement.srcObject = stream;
     videoElement.play();
 
-    const cameraLoop = async () => {
+    // Ocultar video original para que no se vea doble
+    videoElement.style.display = 'none';
+
+    const processFrame = async () => {
       await hands.send({image: videoElement});
-      requestAnimationFrame(cameraLoop);
+      requestAnimationFrame(processFrame);
     };
-    cameraLoop();
+    processFrame();
     startButton.style.display = 'none';
   } catch (err) {
     alert('No se pudo acceder a la cámara: ' + err);
