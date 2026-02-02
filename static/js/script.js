@@ -15,7 +15,7 @@ hands.setOptions({
   minTrackingConfidence: 0.7
 });
 
-// Variables para detección de movimiento
+// Variables para detección
 let lastPositions = [];
 const maxHistory = 5;
 const filterThreshold = 3;
@@ -26,23 +26,27 @@ let activeTimer = null;
 function contarDedos(landmarks) {
   const tipIds = [4, 8, 12, 16, 20];
   let dedos = [false, false, false, false, false];
-  dedos[0] = landmarks[tipIds[0]].x > landmarks[tipIds[0]-1].x; // pulgar
+  dedos[0] = landmarks[tipIds[0]].x > landmarks[tipIds[0]-1].x;
   for (let i = 1; i < tipIds.length; i++) {
     dedos[i] = landmarks[tipIds[i]].y < landmarks[tipIds[i]-2].y;
   }
   return dedos;
 }
 
-// Detectar gesto agitar
-function detectarAgitar(lastPositions) {
-  if (lastPositions.length < maxHistory) return false;
-  let totalDiff = 0;
+// Detectar agitar mano
+function detectarAgitar(positions) {
+  if (positions.length < maxHistory) return false;
+
+  // Calcular desplazamiento promedio de los 4 dedos largos
+  let sumDiff = 0;
   for (let i = 0; i < 4; i++) {
-    let diffY = lastPositions[maxHistory-1][i].y - lastPositions[0][i].y;
-    let diffX = lastPositions[maxHistory-1][i].x - lastPositions[0][i].x;
-    totalDiff += Math.abs(diffY) + Math.abs(diffX);
+    let dy = positions[positions.length - 1][i].y - positions[0][i].y;
+    let dx = positions[positions.length - 1][i].x - positions[0][i].x;
+    sumDiff += Math.sqrt(dx*dx + dy*dy);
   }
-  return totalDiff > 0.15;
+
+  // Umbral ajustable
+  return sumDiff > 0.12;
 }
 
 // Activar acción por 3 segundos
@@ -54,20 +58,20 @@ function activarAccion(texto) {
   }, 3000);
 }
 
-// Función principal de procesamiento de cada frame
+// Procesar resultados de MediaPipe
 hands.onResults(results => {
   canvasCtx.save();
   canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
-  // Dibujar solo si hay imagen de la cámara
   if (results.image) {
     canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
   }
 
-  let gestureDetected = false;
+  let detected = false;
 
   if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
     const landmarks = results.multiHandLandmarks[0];
+
     drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#00FFCC', lineWidth: 5});
     drawLandmarks(canvasCtx, landmarks, {color: '#FF0066', lineWidth: 2});
 
@@ -78,27 +82,29 @@ hands.onResults(results => {
       gestureCounter++;
       if (gestureCounter >= filterThreshold) {
         activarAccion("Abrir puerta (V)");
-        gestureDetected = true;
+        detected = true;
       }
     }
 
     // --- Gest agitar ---
     let pos = [];
-    for (let i = 1; i <= 4; i++) {
-      pos.push({x: landmarks[[4,8,12,16,20][i]].x, y: landmarks[[4,8,12,16,20][i]].y});
+    const tipIds = [8, 12, 16, 20]; // 4 dedos largos
+    for (let i = 0; i < tipIds.length; i++) {
+      pos.push({x: landmarks[tipIds[i]].x, y: landmarks[tipIds[i]].y});
     }
     lastPositions.push(pos);
     if (lastPositions.length > maxHistory) lastPositions.shift();
 
-    if (!gestureDetected && detectarAgitar(lastPositions)) {
+    if (!detected && detectarAgitar(lastPositions)) {
       gestureCounter++;
       if (gestureCounter >= filterThreshold) {
-        activarAccion("Abrir puerta (agitar mano)");
-        gestureDetected = true;
+        activarAccion("Abrir puerta (Agitar mano)");
+        detected = true;
+        lastPositions = [];
       }
     }
 
-    if (!gestureDetected) gestureCounter = 0;
+    if (!detected) gestureCounter = 0;
   }
 
   canvasCtx.restore();
@@ -110,12 +116,12 @@ startButton.addEventListener('click', async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ video: true });
     videoElement.srcObject = stream;
     videoElement.play();
-
-    // Ocultar video original para que no se vea doble
-    videoElement.style.display = 'none';
+    videoElement.style.display = 'none'; // Ocultar video original
 
     const processFrame = async () => {
-      await hands.send({image: videoElement});
+      if (videoElement.readyState === 4) { // esperar a que el video esté listo
+        await hands.send({image: videoElement});
+      }
       requestAnimationFrame(processFrame);
     };
     processFrame();
