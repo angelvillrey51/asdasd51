@@ -15,14 +15,9 @@ hands.setOptions({
   minTrackingConfidence: 0.7
 });
 
-// Variables
-let gestureCounter = 0;
-const filterThreshold = 2;      // frames consecutivos necesarios
-let vCounter = 0;               // cuántas veces se hizo el gesto V
-const vRepetitions = 2;         // V requiere 2 repeticiones
 let activeTimer = null;
 
-// Función para contar dedos levantados (true = levantado)
+// Contar dedos levantados
 function contarDedos(landmarks) {
   const tipIds = [4, 8, 12, 16, 20];
   let dedos = [false, false, false, false, false];
@@ -33,12 +28,12 @@ function contarDedos(landmarks) {
   return dedos;
 }
 
-// Función para detectar gesto OK 👌
+// Detectar gesto OK 👌
 function detectarOK(landmarks) {
   const tipIds = [4,8,12,16,20];
   const pulgar = landmarks[tipIds[0]];
   const indice = landmarks[tipIds[1]];
-  
+
   // Distancia pulgar-indice < umbral
   const dist = Math.hypot(pulgar.x - indice.x, pulgar.y - indice.y);
 
@@ -71,11 +66,8 @@ hands.onResults(results => {
     canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
   }
 
-  let detected = false;
-
   if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
     const landmarks = results.multiHandLandmarks[0];
-
     drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#00FFCC', lineWidth: 5});
     drawLandmarks(canvasCtx, landmarks, {color: '#FF0066', lineWidth: 2});
 
@@ -83,29 +75,12 @@ hands.onResults(results => {
 
     // --- Gesto V ---
     if (dedos[0] && dedos[1] && !dedos[2] && !dedos[3] && !dedos[4]) {
-      gestureCounter++;
-      if (gestureCounter >= filterThreshold) {
-        vCounter++;
-        gestureCounter = 0; // reiniciar contador de frames
-        if (vCounter >= vRepetitions) {
-          activarAccion("Abrir puerta (V)");
-          vCounter = 0; // reiniciar repeticiones
-        }
-        detected = true;
-      }
+      activarAccion("Abrir puerta (V)");
     }
-
     // --- Gesto OK 👌 ---
-    if (!detected && detectarOK(landmarks)) {
-      gestureCounter++;
-      if (gestureCounter >= filterThreshold) {
-        activarAccion("Abrir puerta (OK 👌)");
-        gestureCounter = 0;
-        detected = true;
-      }
+    else if (detectarOK(landmarks)) {
+      activarAccion("Abrir puerta (OK 👌)");
     }
-
-    if (!detected) gestureCounter = 0;
   }
 
   canvasCtx.restore();
@@ -117,7 +92,7 @@ startButton.addEventListener('click', async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ video: true });
     videoElement.srcObject = stream;
     videoElement.play();
-    videoElement.style.display = 'none'; // ocultar video original
+    videoElement.style.display = 'none'; // ocultar video
 
     const processFrame = async () => {
       if (videoElement.readyState === 4) {
