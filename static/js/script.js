@@ -17,7 +17,9 @@ hands.setOptions({
 
 // Variables
 let gestureCounter = 0;
-const filterThreshold = 3;  // frames consecutivos necesarios
+const filterThreshold = 2;      // frames consecutivos necesarios
+let vCounter = 0;               // cuántas veces se hizo el gesto V
+const vRepetitions = 2;         // V requiere 2 repeticiones
 let activeTimer = null;
 
 // Función para contar dedos levantados (true = levantado)
@@ -37,17 +39,17 @@ function detectarOK(landmarks) {
   const pulgar = landmarks[tipIds[0]];
   const indice = landmarks[tipIds[1]];
   
-  // Distancia entre pulgar e índice < umbral para formar círculo
+  // Distancia pulgar-indice < umbral
   const dist = Math.hypot(pulgar.x - indice.x, pulgar.y - indice.y);
-  
-  // Los otros 3 dedos levantados
+
+  // Otros 3 dedos levantados
   const medio = landmarks[tipIds[2]];
   const anular = landmarks[tipIds[3]];
   const meñique = landmarks[tipIds[4]];
   const otrosLevantados = (medio.y < landmarks[tipIds[2]-2].y) &&
                            (anular.y < landmarks[tipIds[3]-2].y) &&
                            (meñique.y < landmarks[tipIds[4]-2].y);
-  
+
   return dist < 0.05 && otrosLevantados;
 }
 
@@ -83,7 +85,12 @@ hands.onResults(results => {
     if (dedos[0] && dedos[1] && !dedos[2] && !dedos[3] && !dedos[4]) {
       gestureCounter++;
       if (gestureCounter >= filterThreshold) {
-        activarAccion("Abrir puerta (V)");
+        vCounter++;
+        gestureCounter = 0; // reiniciar contador de frames
+        if (vCounter >= vRepetitions) {
+          activarAccion("Abrir puerta (V)");
+          vCounter = 0; // reiniciar repeticiones
+        }
         detected = true;
       }
     }
@@ -93,6 +100,7 @@ hands.onResults(results => {
       gestureCounter++;
       if (gestureCounter >= filterThreshold) {
         activarAccion("Abrir puerta (OK 👌)");
+        gestureCounter = 0;
         detected = true;
       }
     }
